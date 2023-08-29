@@ -1,4 +1,5 @@
 const Test = require('./puppeteer.js')
+const creds = require('./creds/staging.js')
 
 module.exports = (app) => {
     app.get('/', (req, res) => {
@@ -7,9 +8,8 @@ module.exports = (app) => {
     });
 
     app.post('/test', async (req, res) => {
-        // const url = req.body.url;
-        const test = new Test(req.body);
-        const results = await test.run();
+        const test = new Test();
+        const results = await test.run(creds);
         console.log(results);
         res.send(results);
     });
