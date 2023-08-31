@@ -14,20 +14,34 @@ class Test {
     this.fail = [];
   }
 
-  async run (creds) {
-    for (const cred of creds) {
-      console.log('running credentials', cred);
-      await this.openBrowser(this.config);
-      await this.openPage();
-      await this.navigateTo(cred.entrypoint);
-      await this.login(cred);
-    //   await this.sortResult(cred);
-      await this.closePage();
-      await this.closeBrowser();
-    }
+  async run (env, roles_list) {
+    const baseUrl = env["baseUrl"];
+    console.log('environment variables: ', env);
+    console.log('requested roles: ', roles_list);
+
+    for (const role of roles_list) {
+        console.log('current role: ', role);
+        for (const user of env.roles[role]) {
+            console.log('pw: ', user.password);
+            for (const entrypoint of user.entrypoints) {
+                await this.openBrowser(this.config);
+                console.log('browser instance opened')
+                await this.openPage();
+                console.log('page opened')
+                await this.navigateTo(`${baseUrl}${entrypoint.path}`);
+                console.log(`navigated to ${baseUrl}${entrypoint.path}`)
+                await this.login(user);
+                console.log(`successfully logged in with ${user.description} user`)
+                await this.sortResult(cred);
+                await this.closePage();
+                await this.closeBrowser();
+            }
+        }
+      }
     return this.returnResults();
   }
 
+  // call these 4 functions for each entrypoint we want to test
   async openBrowser (config = this.config) {
     console.log('opening browser');
     this.browser = await puppeteer.launch(config);
@@ -47,6 +61,7 @@ class Test {
     console.log('waiting for navigation');
     await this.page.waitForNavigation();
   }
+  // ----------------
 
   async sortResult (cred) {
 
@@ -62,10 +77,12 @@ class Test {
     await this.browser.close();
   }
 
-  async login (cred) {
+  // pass creds from environment user and complete the login,
+  // then wait for navigation to terminal URL
+  async login (user) {
     this.page.waitForSelector('input#Username');
     console.log("typing username");
-    await this.page.locator('input#Username').fill(userCreds.username);
+    await this.page.locator('input#Username').fill(user.username);
 
     this.page.waitForSelector('.login-page-form-button button[type="submit"]');
     console.log("clicking Next button");
@@ -73,7 +90,7 @@ class Test {
 
     this.page.waitForSelector('input[type="password"]');
     console.log("typing password");
-    await this.page.locator('input[type="password"]').fill(userCreds.password);
+    await this.page.locator('input[type="password"]').fill(user.password);
 
     console.log("clicking submit");
     await this.page.locator('button[type="submit"]').click();
