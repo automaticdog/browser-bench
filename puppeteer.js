@@ -16,24 +16,29 @@ class Test {
 
   async run (env, roles_list) {
     const baseUrl = env["baseUrl"];
-    console.log('environment variables: ', env);
-    console.log('requested roles: ', roles_list);
+    // console.log('environment variables: ', env);
+    // console.log('requested roles: ', roles_list);
 
     for (const role of roles_list) {
         console.log('current role: ', role);
         for (const user of env.roles[role]) {
-            console.log('pw: ', user.password);
             for (const entrypoint of user.entrypoints) {
+                const testUrl = baseUrl + entrypoint.path;
                 await this.openBrowser(this.config);
                 console.log('browser instance opened')
                 await this.openPage();
                 console.log('page opened')
-                await this.navigateTo(`${baseUrl}${entrypoint.path}`);
-                console.log(`navigated to ${baseUrl}${entrypoint.path}`)
+                await this.navigateTo(testUrl);
+                console.log(`navigated to ${testUrl}`)
                 await this.login(user);
                 console.log(`successfully logged in with ${user.description} user`)
-                await this.sortResult(cred);
+                console.log('waiting for navigation');
+                await this.waitForNavigation()
+                console.log('validating results...');
+                await this.validateResult(user, testUrl, entrypoint.shouldHaveAccess);
+                console.log('closing page');
                 await this.closePage();
+                console.log('closing browser session');
                 await this.closeBrowser();
             }
         }
@@ -53,18 +58,27 @@ class Test {
   }
 
  async navigateTo (entrypoint) {
-    console.log('navigating to entrypoint', entrypoint);
     await this.page.goto(entrypoint);
   }
 
   async waitForNavigation () {
-    console.log('waiting for navigation');
     await this.page.waitForNavigation();
   }
   // ----------------
 
-  async sortResult (cred) {
-
+  async validateResult (user, url, shouldHaveAccess) {
+    const finalUrl = await this.page.url();
+    if (finalUrl == url && shouldHaveAccess) {
+        this.pass.push({"user": user.username, "description": user.description});
+    } else if (finalUrl !== url && !shouldHaveAccess) {
+        this.pass.push({"user": user.username, "description": user.description, "failingEntrypoint": url, "shouldHaveAccess": shouldHaveAccess});
+    } else if (finalUrl == url && !shouldHaveAccess) {
+        this.fail.push({"user": user.username, "description": user.description, "failingEntrypoint": url, "shouldHaveAccess": shouldHaveAccess});
+    } else if (finalUrl !== url && shouldHaveAccess) {
+        this.fail.push({"user": user.username, "description": user.description, "failingEntrypoint": url, "shouldHaveAccess": shouldHaveAccess});
+    } else {
+        console.log("something unexpected happened :/")
+    }
   }
   
   async closePage () {
